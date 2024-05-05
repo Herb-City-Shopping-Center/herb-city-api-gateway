@@ -33,12 +33,10 @@ kind: HTTPRoute
 apiVersion: gateway.networking.k8s.io/v1alpha2
 metadata:
   name: herb-city-user-service-deployment
-  namespace: herb-city-user-service-deployment
 spec:
   parentRefs:
   - kind: Gateway
     name: external-https
-    namespace: infra
   hostnames:
   - "http://34.132.246.193/"
   rules:
