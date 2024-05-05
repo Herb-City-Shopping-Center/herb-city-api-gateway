@@ -1,0 +1,146 @@
+
+https://blog.bitsrc.io/implementing-the-api-gateway-pattern-in-node-js-2cb39d174094
+
+app.get("/", (req, res) => {
+  res.send("Api gateway is running CI/CD on google cloud");
+});
+
+const userServiceProxyTarget = process.env.NODE_ENV === 'production' 
+  ? process.env.USER_SERVICE_CLOUD_URL
+  : `http://localhost:${process.env.USER_SERVICE_PORT}/api/user`;
+
+  app.use("/api/user/getOrdersByUserId", proxy("http://localhost:5007/api/user/getOrdersByUserId"));
+
+const userFeedbackServiceProxyTarget = process.env.NODE_ENV === 'production' 
+  ? process.env.USER_FEEDBACK_SERVICE_CLOUD_URL
+  : `http://localhost:${process.env.USER_FEEDBACK_SERVICE_PORT}/api/user/feedback`;
+
+app.use("/api/user/feedback", proxy(userFeedbackServiceProxyTarget));
+
+const server = app.listen(
+  PORT,
+  console.log(`Server running on PORT ${PORT}...`.yellow.bold)
+);
+if (server) {
+  console.log("Success".green.bold);
+}
+
+
+
+
+
+
+const express = require("express");
+const dotenv = require("dotenv");
+const colors = require("colors");
+const cors = require("cors");
+const helmet = require("helmet");
+const morgan = require("morgan");
+const { createProxyMiddleware } = require("http-proxy-middleware");
+const proxy = require('express-http-proxy')
+const app = express();
+require("dotenv").config({ path: "./config.env" });
+
+dotenv.config();
+
+const services = [
+  {
+    route: "/api/user/getOrdersByUserId",
+    target: `http://localhost:5007`,
+  },
+  // Add more services as needed either deployed or locally.
+ ];
+
+const PORT = process.env.PORT || 9000;
+
+
+app.use(cors());
+app.use(helmet()); // Add security headers
+app.use(morgan("combined")); // Log HTTP requests
+app.disable("x-powered-by"); // Hide Express server information
+app.use(express.json());
+app.use(express.static("public"));
+
+
+
+// Define rate limit constants
+const rateLimit = 20; // Max requests per minute
+const interval = 60 * 1000; // Time window in milliseconds (1 minute)
+
+// Object to store request counts for each IP address
+const requestCounts = {};
+
+// Reset request count for each IP address every 'interval' milliseconds
+setInterval(() => {
+  Object.keys(requestCounts).forEach((ip) => {
+    requestCounts[ip] = 0; // Reset request count for each IP address
+  });
+}, interval);
+
+// Middleware function for rate limiting and timeout handling
+function rateLimitAndTimeout(req, res, next) {
+  const ip = req.ip; // Get client IP address
+
+  // Update request count for the current IP
+  requestCounts[ip] = (requestCounts[ip] || 0) + 1;
+
+  // Check if request count exceeds the rate limit
+  if (requestCounts[ip] > rateLimit) {
+    // Respond with a 429 Too Many Requests status code
+    return res.status(429).json({
+      code: 429,
+      status: "Error",
+      message: "Rate limit exceeded.",
+      data: null,
+    });
+  }
+
+  // Set timeout for each request (example: 10 seconds)
+  req.setTimeout(15000, () => {
+    // Handle timeout error
+    res.status(504).json({
+      code: 504,
+      status: "Error",
+      message: "Gateway timeout.",
+      data: null,
+    });
+    req.abort(); // Abort the request
+  });
+
+  next(); // Continue to the next middleware
+}
+
+// Apply the rate limit and timeout middleware to the proxy
+app.use(rateLimitAndTimeout);
+
+// Handler for route-not-found
+app.use((_req, res) => {
+  res.status(404).json({
+    code: 404,
+    status: "Error",
+    message: "Route not found.",
+    data: null,
+  });
+ });
+
+// Set up proxy middleware for each microservice
+services.forEach(({ route, target }) => {
+  // Proxy options
+  const proxyOptions = {
+    target,
+    changeOrigin: true,
+    pathRewrite: {
+      [`^${route}`]: "",
+    },
+  };
+
+  // Apply rate limiting and timeout middleware before proxying
+  app.use(route, rateLimitAndTimeout, createProxyMiddleware(proxyOptions));
+});
+
+
+// Start Express server
+app.listen(PORT, () => {
+  console.log(`Gateway is running on port ${PORT}`);
+ });
+ 

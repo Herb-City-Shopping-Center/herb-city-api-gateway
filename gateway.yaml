@@ -1,0 +1,62 @@
+kind: Gateway
+apiVersion: gateway.networking.k8s.io/v1beta1
+metadata:
+  name: external-https
+  namespace: infra
+spec:
+  gatewayClassName: gke-l7-global-external-managed
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+    allowedRoutes:
+      namespaces:
+        from: "All"
+  - name: https
+    protocol: HTTPS
+    port: 443
+    allowedRoutes:
+      namespaces:
+        from: "All"
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: SECRET_NAME
+        kind: Secret
+        group: "" 
+  addresses:
+  - type: NamedAddress
+    value: http://34.132.246.193/
+
+---
+kind: HTTPRoute
+apiVersion: gateway.networking.k8s.io/v1alpha2
+metadata:
+  name: herb-city-user-service-deployment
+  namespace: herb-city-user-service-deployment
+spec:
+  parentRefs:
+  - kind: Gateway
+    name: external-https
+    namespace: infra
+  hostnames:
+  - "http://34.132.246.193/"
+  rules:
+  - backendRefs:
+    - name: herb-city-user-service-deployment
+      port: 80
+
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-traffic
+  namespace: herb-city-user-service-deployment
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: infra
+  to:
+  - group: ""
+    kind: Service
