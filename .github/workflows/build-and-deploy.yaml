@@ -39,5 +39,5 @@ jobs:
       run: |
         gcloud container clusters get-credentials autopilot-cluster-1 --region us-central1
         sed -i "s/tag/${IMAGE_TAG}/g" gateway.yaml
-        sed -i "s/SECRET_NAME/infra/g gateway.yaml"
+        sed -i "s/SECRET_NAME/infra/g" gateway.yaml
         kubectl apply -f gateway.yaml
