@@ -2,7 +2,6 @@ kind: Gateway
 apiVersion: gateway.networking.k8s.io/v1beta1
 metadata:
   name: external-https
-  namespace: infra
 spec:
   gatewayClassName: gke-l7-global-external-managed
   listeners:
@@ -49,12 +48,10 @@ apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
   name: allow-traffic
-  namespace: herb-city-user-service-deployment
 spec:
   from:
   - group: gateway.networking.k8s.io
     kind: Gateway
-    namespace: infra
   to:
   - group: ""
     kind: Service
