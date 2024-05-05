@@ -3,6 +3,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: infra
+  name: herb-city-user-service
 
 ---
 kind: Gateway
